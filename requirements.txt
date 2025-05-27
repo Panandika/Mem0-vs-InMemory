@@ -1,0 +1,12 @@
+langgraph
+langchain-openai
+mem0ai
+python-dotenv
+langchain-mcp-adapters
+
+
+#mem0
+psycopg2-binary
+
+#huggingface
+sentence-transformers
