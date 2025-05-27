@@ -34,7 +34,7 @@ class State(TypedDict):
     messages: Annotated[List[HumanMessage | AIMessage], add_messages]
     thinking_time: float
 
-def run_conversation(compiled_graph, user_input: str, mem0_user_id: str):
+async def run_conversation(agent, user_input: str, mem0_user_id: str):
     """Run a single conversation turn"""
     config = {"configurable": {"thread_id": mem0_user_id}}
     
@@ -43,7 +43,7 @@ def run_conversation(compiled_graph, user_input: str, mem0_user_id: str):
     # Measure only the LLM thinking time (including tool use)
     start_time = time.time()
     
-    result = compiled_graph.invoke(
+    result = await agent.ainvoke(
         {"messages": input_messages},
         config
     )
@@ -100,14 +100,14 @@ async def main():
             "config": {
                 "api_key": os.getenv('OPEN_ROUTER_API_KEY'),  
                 "openai_base_url": os.getenv('OPEN_ROUTER_BASE_URL'),
-                "model": os.getenv('OPEN_ROUTER_DEFAULT_MODEL')
+                "model": os.getenv('OPEN_ROUTER_MEM0_MODEL')
             }
         }        
     }
     mem0 = Memory.from_config(mem0_config) # Initialize Mem0
 
-    mem0.reset()  # Add this line to reset and recreate tables with correct dimensions
-    print("Mem0 reset complete")
+    #mem0.reset()  # Add this line to reset and recreate tables with correct dimensions
+    #print("Mem0 reset complete")
 
     # Define the tools the agent can use
     tools = [get_current_time]
@@ -167,16 +167,7 @@ If the user asks for the current time, use the 'get_current_time' tool.
         # Let's omit it for now to keep it simple and rely on Mem0.
     )
 
-    # Define the LangGraph
-    # The graph will now directly use the agent 
-    graph = StateGraph(State)
-    graph.add_node("agent", agent) # Add the agent as a node
-    graph.add_edge(START, "agent")
-    graph.add_edge("agent", END) # Simple flow: agent -> end
-
-    compiled_graph = graph.compile()
-    print("LangGraph compiled.")
-    
+   
     total_time_taken = 0 # Initialize total time
 
     # --- Conversation Simulation ---
@@ -187,17 +178,26 @@ If the user asks for the current time, use the 'get_current_time' tool.
     user_id_2 = "customer_456"
 
     conversations = [
-        # Conversation 1 (user_id_1)
-        {"user_id": user_id_1, "query": "I'm Alergic to peanut and my name is max."},
-        {"user_id": user_id_1, "query": "Why can i alergic to that?"},
-        {"user_id": user_id_1, "query": "What is the current time?"}, # Test the tool
-        
-        # Conversation 2 (user_id_2)
-        {"user_id": user_id_2, "query": "What is the capital of France?"},
-        {"user_id": user_id_2, "query": "And its population?"},
+        # --- User 1: Initial Information & Recall ---
+        {"user_id": user_id_1, "query": "My name is Alice and I love gardening. My favorite flower is a rose."},
+        {"user_id": user_id_1, "query": "What's my name and what do I like to do?"},
+        {"user_id": user_id_1, "query": "What is my favorite flower?"},
 
-        # Back to Conversation 1 (user_id_1) to show memory recall
-        {"user_id": user_id_1, "query": "What's my name and am i alergic to something?."},
+        # --- User 1: Evolving Information & Related Entity ---
+        # This tests if Mem0 can associate new info with Alice and retrieve it.
+        {"user_id": user_id_1, "query": "I recently adopted a cat named Whiskers. Whiskers loves to play with yarn."},
+        {"user_id": user_id_1, "query": "Tell me about my pet."},
+        {"user_id": user_id_1, "query": "What does Whiskers like to do?"},
+
+        # --- User 2: Separate Context ---
+        {"user_id": user_id_2, "query": "I'm Bob and I'm a software engineer. I prefer coffee over tea."},
+        {"user_id": user_id_2, "query": "What's my profession and beverage preference?"},
+
+        # --- Context Switching & Recall ---
+        # This is crucial to test user_id separation.
+        {"user_id": user_id_1, "query": "Remind me about my favorite flower and my pet's name."},
+        {"user_id": user_id_2, "query": "What drink do I prefer?"},
+        {"user_id": user_id_1, "query": "What is the current time?"}, # Keep a tool test
     ]
 
     for i, convo in enumerate(conversations):
@@ -208,7 +208,7 @@ If the user asks for the current time, use the 'get_current_time' tool.
         print(f"You: {user_input}")
         
         # Run the conversation and get both response and thinking time
-        ai_response, thinking_time = run_conversation(compiled_graph, user_input, current_user_id)
+        ai_response, thinking_time = await run_conversation(agent, user_input, current_user_id)
         
         total_time_taken += thinking_time
 
