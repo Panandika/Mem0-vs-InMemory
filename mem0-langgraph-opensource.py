@@ -135,8 +135,8 @@ async def main():
     }
     mem0 = Memory.from_config(mem0_config) # Initialize Mem0
 
-    mem0.reset()  # Add this line to reset and recreate tables with correct dimensions
-    print("Mem0 reset complete - tables recreated with 384 dimensions")
+    #mem0.reset()  # Add this line to reset and recreate tables with correct dimensions
+    #print("Mem0 reset complete - tables recreated with 384 dimensions")
 
     # Define the LangGraph
     graph = StateGraph(State)

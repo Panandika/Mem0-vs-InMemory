@@ -5,7 +5,7 @@ from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 load_dotenv()
 
-def get_llms(model_name: str="anthropic/claude-3.5-sonnet"): 
+def get_llms(model_name: str=os.getenv('OPEN_ROUTER_DEFAULT_MODEL')): 
     """
     Helper function to get OpenAI model instance with necessary API key and endpoint.
     
